@@ -56,6 +56,31 @@ class ChessGame(tk.Tk):
                 if piece is not None:
                     self.canvas.create_text(col * 75 + 37, row * 75 + 37, text=piece.icon, font=("Helvetica", 36))
 
+    def is_valid_move(self, start_pos, end_pos):
+        row1, col1 = start_pos
+        row2, col2 = end_pos
+        piece = self.board[row1][col1]
+
+        if piece is None:  # No piece at start position
+            return False
+
+        # Basic checks (within bounds, not same position, not on same color piece)
+        if not (0 <= row2 <= 7 and 0 <= col2 <= 7) or start_pos == end_pos or \
+                (self.board[row2][col2] is not None and self.board[row2][col2].color == piece.color):
+            return False
+
+        # Implement piece-specific movement rules
+        if piece.icon in ('♙', '♟'):  # Pawn
+            # ... (pawn movement logic) ...
+        elif piece.icon in ('♖', '♜'):  # Rook
+            # ... (rook movement logic) ...
+        elif piece.icon in ('♘', '♞'):  # Knight
+            # ... (knight movement logic) ...
+        # ... (similarly for bishop, queen, king) ...
+
+        return True  # If all checks pass, the move is valid
+
+
     def move_piece(self, start_pos, end_pos):
         row1, col1 = start_pos
         row2, col2 = end_pos
