@@ -71,15 +71,64 @@ class ChessGame(tk.Tk):
 
         # Implement piece-specific movement rules
         if piece.icon in ('♙', '♟'):  # Pawn
-            # ... (pawn movement logic) ...
+            if piece.color == 'white':
+                if row2 == row1 - 1 and col2 == col1 and self.board[row2][col2] is None:
+                    return True
+                if row1 == 6 and row2 == 4 and col1 == col2 and self.board[5][col2] is None and self.board[4][col2] is None:
+                    return True
+            else:
+                if row2 == row1 + 1 and col2 == col1 and self.board[row2][col2] is None:
+                    return True
+                if row1 == 1 and row2 == 3 and col1 == col2 and self.board[2][col2] is None and self.board[3][col2] is None:
+                    return True
+            return False
+
         elif piece.icon in ('♖', '♜'):  # Rook
-            # ... (rook movement logic) ...
+            if row1 == row2 or col1 == col2:
+                if row1 == row2:
+                    step = 1 if col2 > col1 else -1
+                    for c in range(col1 + step, col2, step):
+                        if self.board[row1][c] is not None:
+                            return False
+                else:
+                    step = 1 if row2 > row1 else -1
+                    for r in range(row1 + step, row2, step):
+                        if self.board[r][col1] is not None:
+                            return False
+                return True
+            return False
+
         elif piece.icon in ('♘', '♞'):  # Knight
-            # ... (knight movement logic) ...
-        # ... (similarly for bishop, queen, king) ...
+            if (abs(row2 - row1), abs(col2 - col1)) in [(1, 2), (2, 1)]:
+                return True
+            return False
 
-        return True  # If all checks pass, the move is valid
+        elif piece.icon in ('♗', '♝'):  # Bishop
+            if abs(row2 - row1) == abs(col2 - col1):
+                step_r = 1 if row2 > row1 else -1
+                step_c = 1 if col2 > col1 else -1
+                r, c = row1 + step_r, col1 + step_c
+                while (r, c) != (row2, col2):
+                    if self.board[r][c] is not None:
+                        return False
+                    r += step_r
+                    c += step_c
+                return True
+            return False
 
+        elif piece.icon in ('♕', '♛'):  # Queen
+            if row1 == row2 or col1 == col2:
+                return self.is_valid_move((row1, col1), (row2, col2))  # Rook movement
+            elif abs(row2 - row1) == abs(col2 - col1):
+                return self.is_valid_move((row1, col1), (row2, col2))  # Bishop movement
+            return False
+
+        elif piece.icon in ('♔', '♚'):  # King
+            if abs(row2 - row1) <= 1 and abs(col2 - col1) <= 1:
+                return True
+            return False
+
+        return False  # If none of the above conditions are met, the move is invalid
 
     def move_piece(self, start_pos, end_pos):
         row1, col1 = start_pos
@@ -94,10 +143,6 @@ class ChessGame(tk.Tk):
             self.draw_board()
             return True
         return False
-
-    def is_valid_move(self, start_pos, end_pos):
-        # Implement validation logic here
-        return True
 
     def on_click(self, event):
         col = event.x // 75
