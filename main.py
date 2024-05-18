@@ -8,6 +8,10 @@ class ChessGame(tk.Tk):
         self.geometry("600x600")
         self.current_turn = 'white'
         self.selected_piece = None
+        self.en_passant_target = None
+        self.white_king_moved = self.black_king_moved = False
+        self.white_rook_moved = [False, False]  # left, right rooks
+        self.black_rook_moved = [False, False]  # left, right rooks
         self.create_board()
         self.draw_board()
 
@@ -77,10 +81,15 @@ class ChessGame(tk.Tk):
             if (row2 == row1 + direction and col2 == col1 and self.board[row2][col2] is None) or \
                (row1 == start_row and row2 == row1 + 2 * direction and col1 == col2 and 
                 self.board[row1 + direction][col2] is None and self.board[row2][col2] is None):
+                self.en_passant_target = (row1 + direction, col1) if abs(row2 - row1) == 2 else None
                 return True
             # Capture move
-            if row2 == row1 + direction and abs(col2 - col1) == 1 and self.board[row2][col2] is not None:
-                return True
+            if row2 == row1 + direction and abs(col2 - col1) == 1:
+                if self.board[row2][col2] is not None:
+                    return True
+                if self.en_passant_target == (row2, col2) and self.board[row1][col2] is not None and \
+                   self.board[row1][col2].color != piece.color and self.board[row1][col2].icon in ('♙', '♟'):
+                    return True
             return False
 
         elif piece.icon in ('♖', '♜'):  # Rook
@@ -126,6 +135,16 @@ class ChessGame(tk.Tk):
         elif piece.icon in ('♔', '♚'):  # King
             if abs(row2 - row1) <= 1 and abs(col2 - col1) <= 1:
                 return True
+            # Castling
+            if row1 == row2 and abs(col2 - col1) == 2:
+                if piece.color == 'white' and not self.white_king_moved and \
+                   ((col2 == 6 and not self.white_rook_moved[1] and all(self.board[row1][c] is None for c in range(5, 7))) or \
+                    (col2 == 2 and not self.white_rook_moved[0] and all(self.board[row1][c] is None for c in range(1, 4)))):
+                    return True
+                if piece.color == 'black' and not self.black_king_moved and \
+                   ((col2 == 6 and not self.black_rook_moved[1] and all(self.board[row1][c] is None for c in range(5, 7))) or \
+                    (col2 == 2 and not self.black_rook_moved[0] and all(self.board[row1][c] is None for c in range(1, 4)))):
+                    return True
             return False
 
         return False  # If none of the above conditions are met, the move is invalid
@@ -137,9 +156,35 @@ class ChessGame(tk.Tk):
         if piece is None or piece.color != self.current_turn:
             return False
         if self.is_valid_move(start_pos, end_pos):
+            # Special move handling
+            if piece.icon in ('♙', '♟') and self.en_passant_target == (row2, col2):
+                self.board[row1][col2] = None  # Remove captured pawn for en passant
+
+            if piece.icon in ('♔', '♚') and abs(col2 - col1) == 2:  # Castling
+                if col2 == 6:  # Kingside
+                    self.board[row1][5], self.board[row1][7] = self.board[row1][7], None
+                elif col2 == 2:  # Queenside
+                    self.board[row1][3], self.board[row1][0] = self.board[row1][0], None
+
             self.board[row2][col2] = piece
             self.board[row1][col1] = None
+
+            # Handle promotions
+            if piece.icon in ('♙', '♟') and (row2 == 0 or row2 == 7):
+                self.board[row2][col2] = Piece('♕' if piece.color == 'white' else '♛', piece.color)
+
+            # Update king and rook moved status
+            if piece.icon == '♔':
+                self.white_king_moved = True
+            elif piece.icon == '♚':
+                self.black_king_moved = True
+            elif piece.icon == '♖' and row1 == 0:
+                self.white_rook_moved[0 if col1 == 0 else 1] = True
+            elif piece.icon == '♜' and row1 == 7:
+                self.black_rook_moved[0 if col1 == 0 else 1] = True
+
             self.current_turn = 'black' if self.current_turn == 'white' else 'white'
+            self.en_passant_target = None
             self.draw_board()
             return True
         return False
