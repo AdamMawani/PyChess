@@ -61,6 +61,16 @@ class ChessGame(tk.Tk):
                 if piece is not None:
                     self.canvas.create_text(col * 75 + 37, row * 75 + 37, text=piece.icon, font=("Helvetica", 36))
 
+    def create_buttons(self):
+        button_frame = tk.Frame(self)
+        button_frame.pack()
+
+        save_button = tk.Button(button_frame, text="Save Game", command=self.save_game)
+        save_button.pack(side=tk.LEFT)
+
+        load_button = tk.Button(button_frame, text="Load Game", command=self.load_game)
+        load_button.pack(side=tk.LEFT)
+
     def is_valid_move(self, start_pos, end_pos):
         row1, col1 = start_pos
         row2, col2 = end_pos
