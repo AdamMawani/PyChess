@@ -7,6 +7,7 @@ class ChessGame(tk.Tk):
         self.title("Chess Game")
         self.geometry("600x600")
         self.current_turn = 'white'
+        self.selected_piece = None
         self.create_board()
         self.draw_board()
 
@@ -71,16 +72,15 @@ class ChessGame(tk.Tk):
 
         # Implement piece-specific movement rules
         if piece.icon in ('♙', '♟'):  # Pawn
-            if piece.color == 'white':
-                if row2 == row1 - 1 and col2 == col1 and self.board[row2][col2] is None:
-                    return True
-                if row1 == 6 and row2 == 4 and col1 == col2 and self.board[5][col2] is None and self.board[4][col2] is None:
-                    return True
-            else:
-                if row2 == row1 + 1 and col2 == col1 and self.board[row2][col2] is None:
-                    return True
-                if row1 == 1 and row2 == 3 and col1 == col2 and self.board[2][col2] is None and self.board[3][col2] is None:
-                    return True
+            direction = -1 if piece.color == 'white' else 1
+            start_row = 6 if piece.color == 'white' else 1
+            if (row2 == row1 + direction and col2 == col1 and self.board[row2][col2] is None) or \
+               (row1 == start_row and row2 == row1 + 2 * direction and col1 == col2 and 
+                self.board[row1 + direction][col2] is None and self.board[row2][col2] is None):
+                return True
+            # Capture move
+            if row2 == row1 + direction and abs(col2 - col1) == 1 and self.board[row2][col2] is not None:
+                return True
             return False
 
         elif piece.icon in ('♖', '♜'):  # Rook
@@ -147,7 +147,13 @@ class ChessGame(tk.Tk):
     def on_click(self, event):
         col = event.x // 75
         row = event.y // 75
-        print(f"Clicked: ({row}, {col})")
+        if self.selected_piece:
+            if self.move_piece(self.selected_piece, (row, col)):
+                self.selected_piece = None
+            else:
+                self.selected_piece = (row, col)
+        else:
+            self.selected_piece = (row, col)
 
     def start(self):
         self.canvas.bind("<Button-1>", self.on_click)
