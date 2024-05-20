@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import simpledialog
 
 class ChessGame(tk.Tk):
     def __init__(self):
@@ -12,6 +13,8 @@ class ChessGame(tk.Tk):
         self.white_king_moved = self.black_king_moved = False
         self.white_rook_moved = [False, False]  # left, right rooks
         self.black_rook_moved = [False, False]  # left, right rooks
+        self.last_move = None
+        self.game_state = 'ongoing'
         self.create_board()
         self.draw_board()
         self.canvas.bind("<Button-1>", self.on_click)
@@ -61,6 +64,15 @@ class ChessGame(tk.Tk):
                 piece = self.board[row][col]
                 if piece is not None:
                     self.canvas.create_text(col * 75 + 37, row * 75 + 37, text=piece.icon, font=("Helvetica", 36))
+
+        if self.last_move:
+            row1, col1, row2, col2 = self.last_move
+            self.canvas.create_rectangle(col1 * 75, row1 * 75, (col1 + 1) * 75, (row1 + 1) * 75, outline="yellow", width=3)
+            self.canvas.create_rectangle(col2 * 75, row2 * 75, (col2 + 1) * 75, (row2 + 1) * 75, outline="yellow", width=3)
+
+        if self.selected_piece:
+            row, col = self.selected_piece
+            self.canvas.create_rectangle(col * 75, row * 75, (col + 1) * 75, (row + 1) * 75, outline="blue", width=3)
 
     def is_valid_move(self, start_pos, end_pos):
         row1, col1 = start_pos
@@ -172,7 +184,12 @@ class ChessGame(tk.Tk):
 
             # Handle promotions
             if piece.icon in ('♙', '♟') and (row2 == 0 or row2 == 7):
-                self.board[row2][col2] = Piece('♕' if piece.color == 'white' else '♛', piece.color)
+                promoted_piece = simpledialog.askstring("Promotion", "Choose piece (Q, R, B, N):")
+                promotion_dict = {'Q': '♕' if piece.color == 'white' else '♛',
+                                  'R': '♖' if piece.color == 'white' else '♜',
+                                  'B': '♗' if piece.color == 'white' else '♝',
+                                  'N': '♘' if piece.color == 'white' else '♞'}
+                self.board[row2][col2] = Piece(promotion_dict.get(promoted_piece, '♕' if piece.color == 'white' else '♛'), piece.color)
 
             # Update king and rook moved status
             if piece.icon == '♔':
@@ -186,6 +203,7 @@ class ChessGame(tk.Tk):
 
             self.current_turn = 'black' if self.current_turn == 'white' else 'white'
             self.en_passant_target = None
+            self.last_move = (row1, col1, row2, col2)
             self.draw_board()
             return True
         return False
@@ -200,17 +218,16 @@ class ChessGame(tk.Tk):
                 self.selected_piece = (row, col)
         else:
             self.selected_piece = (row, col)
+        self.draw_board()
 
     def start(self):
         self.canvas.bind("<Button-1>", self.on_click)
         self.mainloop()
 
-
 class Piece:
     def __init__(self, icon, color):
         self.icon = icon
         self.color = color
-
 
 if __name__ == "__main__":
     game = ChessGame()
