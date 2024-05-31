@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import simpledialog
+from tkinter import simpledialog, messagebox
 
 class ChessGame(tk.Tk):
     def __init__(self):
@@ -14,6 +14,7 @@ class ChessGame(tk.Tk):
         self.white_rook_moved = [False, False]
         self.black_rook_moved = [False, False]
         self.last_move = None
+        self.move_history = []
         self.game_state = 'ongoing'
         self.create_board()
         self.draw_board()
@@ -24,17 +25,17 @@ class ChessGame(tk.Tk):
         for i in range(8):
             self.board.append([None] * 8)
 
-        for color in ['white', 'black']:
-            self.place_piece(0, 0, '♖', color)
-            self.place_piece(0, 1, '♘', color)
-            self.place_piece(0, 2, '♗', color)
-            self.place_piece(0, 3, '♕', color)
-            self.place_piece(0, 4, '♔', color)
-            self.place_piece(0, 5, '♗', color)
-            self.place_piece(0, 6, '♘', color)
-            self.place_piece(0, 7, '♖', color)
+        for color, row_pawn, row_back in [('white', 6, 7), ('black', 1, 0)]:
+            self.place_piece(row_back, 0, '♖', color)
+            self.place_piece(row_back, 1, '♘', color)
+            self.place_piece(row_back, 2, '♗', color)
+            self.place_piece(row_back, 3, '♕', color)
+            self.place_piece(row_back, 4, '♔', color)
+            self.place_piece(row_back, 5, '♗', color)
+            self.place_piece(row_back, 6, '♘', color)
+            self.place_piece(row_back, 7, '♖', color)
             for i in range(8):
-                self.place_piece(1, i, '♙', color)
+                self.place_piece(row_pawn, i, '♙', color)
 
     def place_piece(self, row, col, piece_type, color):
         piece = Piece(piece_type, color)
@@ -61,6 +62,18 @@ class ChessGame(tk.Tk):
         if self.selected_piece:
             row, col = self.selected_piece
             self.canvas.create_rectangle(col * 75, row * 75, (col + 1) * 75, (row + 1) * 75, outline="blue", width=3)
+            self.highlight_possible_moves()
+
+        self.show_game_status()
+
+    def highlight_possible_moves(self):
+        row, col = self.selected_piece
+        piece = self.board[row][col]
+        if piece and piece.color == self.current_turn:
+            for r in range(8):
+                for c in range(8):
+                    if self.is_valid_move((row, col), (r, c)):
+                        self.canvas.create_rectangle(c * 75, r * 75, (c + 1) * 75, (r + 1) * 75, outline="green", width=3)
 
     def is_valid_move(self, start_pos, end_pos):
         row1, col1 = start_pos
@@ -177,17 +190,42 @@ class ChessGame(tk.Tk):
                 self.white_king_moved = True
             elif piece.icon == '♚':
                 self.black_king_moved = True
-            elif piece.icon == '♖' and row1 == 0:
+            elif piece.icon == '♖' and row1 == 7:
                 self.white_rook_moved[0 if col1 == 0 else 1] = True
-            elif piece.icon == '♜' and row1 == 7:
+            elif piece.icon == '♜' and row1 == 0:
                 self.black_rook_moved[0 if col1 == 0 else 1] = True
 
             self.current_turn = 'black' if self.current_turn == 'white' else 'white'
             self.en_passant_target = None
             self.last_move = (row1, col1, row2, col2)
+            self.move_history.append((start_pos, end_pos))
+            self.check_game_status()
             self.draw_board()
             return True
         return False
+
+    def undo_move(self):
+        if not self.move_history:
+            return
+        start_pos, end_pos = self.move_history.pop()
+        row1, col1 = start_pos
+        row2, col2 = end_pos
+        piece = self.board[row2][col2]
+        self.board[row1][col1] = piece
+        self.board[row2][col2] = None
+        if piece.icon in ('♔', '♚') and abs(col2 - col1) == 2:
+            if col2 == 6:
+                self.board[row1][5], self.board[row1][7] = None, self.board[row1][5]
+            elif col2 == 2:
+                self.board[row1][3], self.board[row1][0] = None, self.board[row1][3]
+
+        if piece.icon in ('♙', '♟') and self.en_passant_target == (row2, col2):
+            self.board[row1][col2] = Piece('♙' if piece.color == 'black' else '♟', 'black' if piece.color == 'white' else 'white')
+
+        self.current_turn = 'black' if self.current_turn == 'white' else 'white'
+        self.en_passant_target = None
+        self.last_move = None
+        self.draw_board()
 
     def on_click(self, event):
         col = event.x // 75
@@ -201,8 +239,62 @@ class ChessGame(tk.Tk):
             self.selected_piece = (row, col)
         self.draw_board()
 
+    def show_game_status(self):
+        status_text = f"Turn: {self.current_turn.capitalize()}"
+        if self.is_in_check('white'):
+            status_text += " - White is in check"
+        if self.is_in_check('black'):
+            status_text += " - Black is in check"
+        if self.is_checkmate('white'):
+            status_text = "Checkmate! Black wins!"
+            self.game_state = 'finished'
+        if self.is_checkmate('black'):
+            status_text = "Checkmate! White wins!"
+            self.game_state = 'finished'
+        self.canvas.create_text(300, 10, text=status_text, font=("Helvetica", 16), fill="black")
+
+    def is_in_check(self, color):
+        king_pos = None
+        for r in range(8):
+            for c in range(8):
+                piece = self.board[r][c]
+                if piece and piece.color == color and piece.icon in ('♔', '♚'):
+                    king_pos = (r, c)
+                    break
+        if not king_pos:
+            return False
+        for r in range(8):
+            for c in range(8):
+                piece = self.board[r][c]
+                if piece and piece.color != color:
+                    if self.is_valid_move((r, c), king_pos):
+                        return True
+        return False
+
+    def is_checkmate(self, color):
+        if not self.is_in_check(color):
+            return False
+        for r in range(8):
+            for c in range(8):
+                piece = self.board[r][c]
+                if piece and piece.color == color:
+                    for rr in range(8):
+                        for cc in range(8):
+                            if self.is_valid_move((r, c), (rr, cc)):
+                                original_piece = self.board[rr][cc]
+                                self.board[rr][cc] = piece
+                                self.board[r][c] = None
+                                if not self.is_in_check(color):
+                                    self.board[r][c] = piece
+                                    self.board[rr][cc] = original_piece
+                                    return False
+                                self.board[r][c] = piece
+                                self.board[rr][cc] = original_piece
+        return True
+
     def start(self):
         self.canvas.bind("<Button-1>", self.on_click)
+        self.bind("<Control-z>", lambda event: self.undo_move())
         self.mainloop()
 
 class Piece:
