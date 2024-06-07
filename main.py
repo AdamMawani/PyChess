@@ -83,106 +83,13 @@ class ChessGame(tk.Tk):
         row2, col2 = end_pos
         piece = self.board[row1][col1]
 
-        if piece is None:
+        if piece is None or not (0 <= row2 <= 7 and 0 <= col2 <= 7) or start_pos == end_pos:
             return False
 
-        if not (0 <= row2 <= 7 and 0 <= col2 <= 7) or start_pos == end_pos or \
-                (self.board[row2][col2] is not None and self.board[row2][col2].color == piece.color):
+        if self.board[row2][col2] is not None and self.board[row2][col2].color == piece.color:
             return False
 
-        move_validators = {
-            '♙': self.is_valid_pawn_move,
-            '♖': self.is_valid_rook_move,
-            '♘': self.is_valid_knight_move,
-            '♗': self.is_valid_bishop_move,
-            '♕': self.is_valid_queen_move,
-            '♔': self.is_valid_king_move,
-            '♟': self.is_valid_pawn_move,
-            '♜': self.is_valid_rook_move,
-            '♞': self.is_valid_knight_move,
-            '♝': self.is_valid_bishop_move,
-            '♛': self.is_valid_queen_move,
-            '♚': self.is_valid_king_move
-        }
-
-        return move_validators[piece.icon](start_pos, end_pos)
-
-    def is_valid_pawn_move(self, start_pos, end_pos):
-        row1, col1 = start_pos
-        row2, col2 = end_pos
-        piece = self.board[row1][col1]
-        direction = -1 if piece.color == 'white' else 1
-        start_row = 6 if piece.color == 'white' else 1
-
-        if (row2 == row1 + direction and col2 == col1 and self.board[row2][col2] is None) or \
-           (row1 == start_row and row2 == row1 + 2 * direction and col1 == col2 and 
-            self.board[row1 + direction][col2] is None and self.board[row2][col2] is None):
-            self.en_passant_target = (row1 + direction, col1) if abs(row2 - row1) == 2 else None
-            return True
-
-        if row2 == row1 + direction and abs(col2 - col1) == 1:
-            if self.board[row2][col2] is not None:
-                return True
-            if self.en_passant_target == (row2, col2) and self.board[row1][col2] is not None and \
-               self.board[row1][col2].color != piece.color and self.board[row1][col2].icon in ('♙', '♟'):
-                return True
-
-        return False
-
-    def is_valid_rook_move(self, start_pos, end_pos):
-        row1, col1 = start_pos
-        row2, col2 = end_pos
-        if row1 == row2 or col1 == col2:
-            step_r = 1 if row2 > row1 else -1 if row1 > row2 else 0
-            step_c = 1 if col2 > col1 else -1 if col1 > col2 else 0
-            r, c = row1 + step_r, col1 + step_c
-            while (r, c) != (row2, col2):
-                if self.board[r][c] is not None:
-                    return False
-                r += step_r
-                c += step_c
-            return True
-        return False
-
-    def is_valid_knight_move(self, start_pos, end_pos):
-        row1, col1 = start_pos
-        row2, col2 = end_pos
-        return (abs(row2 - row1), abs(col2 - col1)) in [(1, 2), (2, 1)]
-
-    def is_valid_bishop_move(self, start_pos, end_pos):
-        row1, col1 = start_pos
-        row2, col2 = end_pos
-        if abs(row2 - row1) == abs(col2 - col1):
-            step_r = 1 if row2 > row1 else -1
-            step_c = 1 if col2 > col1 else -1
-            r, c = row1 + step_r, col1 + step_c
-            while (r, c) != (row2, col2):
-                if self.board[r][c] is not None:
-                    return False
-                r += step_r
-                c += step_c
-            return True
-        return False
-
-    def is_valid_queen_move(self, start_pos, end_pos):
-        return self.is_valid_rook_move(start_pos, end_pos) or self.is_valid_bishop_move(start_pos, end_pos)
-
-    def is_valid_king_move(self, start_pos, end_pos):
-        row1, col1 = start_pos
-        row2, col2 = end_pos
-        piece = self.board[row1][col1]
-        if abs(row2 - row1) <= 1 and abs(col2 - col1) <= 1:
-            return True
-        if row1 == row2 and abs(col2 - col1) == 2:
-            if piece.color == 'white' and not self.white_king_moved and \
-               ((col2 == 6 and not self.white_rook_moved[1] and all(self.board[row1][c] is None for c in range(5, 7))) or \
-                (col2 == 2 and not self.white_rook_moved[0] and all(self.board[row1][c] is None for c in range(1, 4)))):
-                return True
-            if piece.color == 'black' and not self.black_king_moved and \
-               ((col2 == 6 and not self.black_rook_moved[1] and all(self.board[row1][c] is None for c in range(5, 7))) or \
-                (col2 == 2 and not self.black_rook_moved[0] and all(self.board[row1][c] is None for c in range(1, 4)))):
-                return True
-        return False
+        return piece.is_valid_move(start_pos, end_pos, self.board, self.en_passant_target)
 
     def move_piece(self, start_pos, end_pos):
         if not self.is_valid_move(start_pos, end_pos):
@@ -274,62 +181,116 @@ class ChessGame(tk.Tk):
 
     def show_game_status(self):
         status_text = f"Turn: {self.current_turn.capitalize()}"
-        if self.is_in_check('white'):
-            status_text += " - White is in check"
-        if self.is_in_check('black'):
-            status_text += " - Black is in check"
-        if self.is_checkmate('white'):
-            status_text = "Checkmate! Black wins!"
-            self.game_state = 'finished'
-        if self.is_checkmate('black'):
-            status_text = "Checkmate! White wins!"
-            self.game_state = 'finished'
-        self.canvas.create_text(300, 10, text=status_text, font=("Helvetica", 16), fill="black")
+        if self.game_state != 'ongoing':
+            status_text = self.game_state
+        self.canvas.create_text(300, 550, text=status_text, font=("Helvetica", 24), fill="red")
 
-    def is_in_check(self, color):
-        king_pos = self.find_king(color)
-        if not king_pos:
-            return False
-        return any(self.is_valid_move((r, c), king_pos) for r in range(8) for c in range(8) if self.board[r][c] and self.board[r][c].color != color)
+    def check_game_status(self):
+        # Add checks for checkmate, stalemate, and draw conditions
+        pass
 
-    def find_king(self, color):
-        for r in range(8):
-            for c in range(8):
-                piece = self.board[r][c]
-                if piece and piece.color == color and piece.icon in ('♔', '♚'):
-                    return (r, c)
-        return None
-
-    def is_checkmate(self, color):
-        if not self.is_in_check(color):
-            return False
-        for r in range(8):
-            for c in range(8):
-                piece = self.board[r][c]
-                if piece and piece.color == color:
-                    for rr in range(8):
-                        for cc in range(8):
-                            if self.is_valid_move((r, c), (rr, cc)):
-                                original_piece = self.board[rr][cc]
-                                self.board[rr][cc] = piece
-                                self.board[r][c] = None
-                                if not self.is_in_check(color):
-                                    self.board[r][c] = piece
-                                    self.board[rr][cc] = original_piece
-                                    return False
-                                self.board[r][c] = piece
-                                self.board[rr][cc] = original_piece
-        return True
-
-    def start(self):
-        self.bind("<Control-z>", lambda event: self.undo_move())
-        self.mainloop()
 
 class Piece:
     def __init__(self, icon, color):
         self.icon = icon
         self.color = color
 
+    def is_valid_move(self, start_pos, end_pos, board, en_passant_target):
+        row1, col1 = start_pos
+        row2, col2 = end_pos
+
+        if self.icon in ('♙', '♟'):
+            return self.valid_pawn_move(start_pos, end_pos, board, en_passant_target)
+        elif self.icon in ('♖', '♜'):
+            return self.valid_rook_move(start_pos, end_pos, board)
+        elif self.icon in ('♘', '♞'):
+            return self.valid_knight_move(start_pos, end_pos)
+        elif self.icon in ('♗', '♝'):
+            return self.valid_bishop_move(start_pos, end_pos, board)
+        elif self.icon in ('♕', '♛'):
+            return self.valid_queen_move(start_pos, end_pos, board)
+        elif self.icon in ('♔', '♚'):
+            return self.valid_king_move(start_pos, end_pos, board)
+        return False
+
+    def valid_pawn_move(self, start_pos, end_pos, board, en_passant_target):
+        row1, col1 = start_pos
+        row2, col2 = end_pos
+        direction = 1 if self.color == 'black' else -1
+        start_row = 1 if self.color == 'black' else 6
+
+        if col1 == col2 and board[row2][col2] is None:
+            if row2 == row1 + direction:
+                return True
+            if row1 == start_row and row2 == row1 + 2 * direction and board[row1 + direction][col2] is None:
+                return True
+        if abs(col1 - col2) == 1 and row2 == row1 + direction and (board[row2][col2] is not None or en_passant_target == end_pos):
+            return True
+
+        return False
+
+    def valid_rook_move(self, start_pos, end_pos, board):
+        row1, col1 = start_pos
+        row2, col2 = end_pos
+
+        if row1 != row2 and col1 != col2:
+            return False
+
+        if row1 == row2:
+            step = 1 if col2 > col1 else -1
+            for col in range(col1 + step, col2, step):
+                if board[row1][col] is not None:
+                    return False
+
+        if col1 == col2:
+            step = 1 if row2 > row1 else -1
+            for row in range(row1 + step, row2, step):
+                if board[row][col1] is not None:
+                    return False
+
+        return True
+
+    def valid_knight_move(self, start_pos, end_pos):
+        row1, col1 = start_pos
+        row2, col2 = end_pos
+        return (abs(row1 - row2), abs(col1 - col2)) in [(2, 1), (1, 2)]
+
+    def valid_bishop_move(self, start_pos, end_pos, board):
+        row1, col1 = start_pos
+        row2, col2 = end_pos
+
+        if abs(row1 - row2) != abs(col1 - col2):
+            return False
+
+        row_step = 1 if row2 > row1 else -1
+        col_step = 1 if col2 > col1 else -1
+
+        for i in range(1, abs(row2 - row1)):
+            if board[row1 + i * row_step][col1 + i * col_step] is not None:
+                return False
+
+        return True
+
+    def valid_queen_move(self, start_pos, end_pos, board):
+        return self.valid_rook_move(start_pos, end_pos, board) or self.valid_bishop_move(start_pos, end_pos, board)
+
+    def valid_king_move(self, start_pos, end_pos, board):
+        row1, col1 = start_pos
+        row2, col2 = end_pos
+
+        if max(abs(row1 - row2), abs(col1 - col2)) == 1:
+            return True
+
+        # Castling
+        if row1 == row2 and abs(col1 - col2) == 2:
+            if self.color == 'white' and not any([board[7][i] for i in range(1, 4)]) and not board[7][5] and not board[7][6]:
+                return True
+            if self.color == 'black' and not any([board[0][i] for i in range(1, 4)]) and not board[0][5] and not board[0][6]:
+                return True
+
+        return False
+
+
 if __name__ == "__main__":
-    game = ChessGame()
-    game.start()
+    app = ChessGame()
+    app.mainloop()
